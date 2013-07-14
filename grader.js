@@ -24,8 +24,13 @@ References:
 var fs = require('fs');
 var program = require('commander');
 var cheerio = require('cheerio');
+
+//added by Rahul Dutta
+var rest = require('restler');
+
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var URL_DEFAULT = "http://young-dusk-6473.herokuapp.com/";
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -36,15 +41,22 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
+
+
+
+
 var cheerioHtmlFile = function(htmlfile) {
     return cheerio.load(fs.readFileSync(htmlfile));
 };
+
 
 var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
 var checkHtmlFile = function(htmlfile, checksfile) {
+    
+    console.log("check html file....");
     $ = cheerioHtmlFile(htmlfile);
     var checks = loadChecks(checksfile).sort();
     var out = {};
@@ -54,6 +66,37 @@ var checkHtmlFile = function(htmlfile, checksfile) {
     }
     return out;
 };
+
+
+var checkUrl = function(url, checksfile) {
+
+   console.log("in check url..");
+   rest.get(url).on('complete',function(data){
+   if (data instanceof Error) {
+	console.log("Error:" + data.message);
+	console.log("%s doesnt exist.Exiting...",url);
+	process.exit(1);
+}else {
+
+   $ = cheerio.load(data);
+   var checks = loadChecks(checksfile).sort();
+   var out = {};
+   for (var ii in checks) {
+	var present = $(checks[ii]).length > 0;
+	out[checks[ii]] = present;
+}
+}
+   stringify(out);
+   console.log("exiting..checkurl");
+
+});
+}
+
+var stringify = function(arr){
+
+   console.log("printing JSON output...");
+   console.log(JSON.stringify(arr, null, 4));
+}
 
 var clone = function(fn) {
     // Workaround for commander.js issue.
@@ -65,10 +108,20 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+	.option('-u, --url <url>', 'Url to index.html')
         .parse(process.argv);
+    if (program.url){
+	console.log("url is...");
+	console.log(program.url);
+	checkUrl(program.url, program.checks);
+}else if (program.file){
+
+
+    console.log("entering the files option..");
     var checkJson = checkHtmlFile(program.file, program.checks);
-    var outJson = JSON.stringify(checkJson, null, 4);
-    console.log(outJson);
+    //var outJson = stringify(checkJson);
+    //console.log(outJson);
+}
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
